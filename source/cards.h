@@ -67,7 +67,7 @@ typedef struct
 {
     Suit suit;
     Rank rank;
-    uint8_t id;
+    uint16_t id;
     uint8_t nominal;
 
     CardEnhancement enhancement;

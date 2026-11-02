@@ -2,3 +2,4 @@
 *.sav
 build
 compile_commands.json
+test_cards.c

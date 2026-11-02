@@ -20,7 +20,7 @@ void deck_init(Deck *deck)
 
             card->suit = (Suit)suit;
             card->rank = (Rank)rank;
-            card->id = (uint8_t)(index - 1);
+            card->id = (uint16_t)(index - 1);
 
             card->enhancement = ENHANCEMENT_NONE;
             card->edition = EDITION_NONE;
@@ -125,11 +125,10 @@ int deck_add_card(Deck *deck, Card card)
 {
     if (deck == NULL ||
         deck->card_count < 0 ||
-        deck->card_count >= MAX_DECK_SIZE ||
-        deck->next_card_id > UINT8_MAX)
+        deck->card_count >= MAX_DECK_SIZE)
         return 0;
 
-    card.id = (uint8_t)deck->next_card_id++;
+    card.id = deck->next_card_id++;
 
     deck->cards[deck->card_count] = card;
     deck->card_count++;
