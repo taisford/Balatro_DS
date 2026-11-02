@@ -44,6 +44,7 @@ void deck_init(Deck *deck)
 
     deck->next_card = 0;
     deck->card_count = DECK_SIZE;
+    deck->next_card_id = DECK_SIZE;
 }
 
 void deck_shuffle(Deck *deck)
@@ -102,4 +103,73 @@ const char *card_suit_name(Suit suit)
         return "?";
 
     return names[suit];
+}
+
+Card *deck_find_card(Deck *deck, uint16_t id)
+{
+    if (deck == NULL ||
+        deck->card_count < 0 ||
+        deck->card_count > MAX_DECK_SIZE)
+        return NULL;
+
+    for (int i = 0; i < deck->card_count; i++)
+    {
+        if (deck->cards[i].id == id)
+            return &deck->cards[i];
+    }
+
+    return NULL;
+}
+
+int deck_add_card(Deck *deck, Card card)
+{
+    if (deck == NULL ||
+        deck->card_count < 0 ||
+        deck->card_count >= MAX_DECK_SIZE ||
+        deck->next_card_id > UINT8_MAX)
+        return 0;
+
+    card.id = (uint8_t)deck->next_card_id++;
+
+    deck->cards[deck->card_count] = card;
+    deck->card_count++;
+
+    return 1;
+}
+
+int deck_remove_card(Deck *deck, uint16_t id)
+{
+    if (deck == NULL ||
+        deck->card_count <= 0 ||
+        deck->card_count > MAX_DECK_SIZE)
+        return 0;
+
+    int index = -1;
+
+    for (int i = 0; i < deck->card_count; i++)
+    {
+        if (deck->cards[i].id == id)
+        {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1)
+        return 0;
+
+    for (int i = index; i < deck->card_count - 1; i++)
+    {
+        deck->cards[i] = deck->cards[i + 1];
+    }
+
+    deck->card_count--;
+
+    if (index < deck->next_card)
+        deck->next_card--;
+
+    if (deck->next_card > deck->card_count)
+        deck->next_card = deck->card_count;
+
+    return 1;
 }
