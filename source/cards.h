@@ -79,19 +79,31 @@ typedef struct
 
 typedef struct
 {
-    Card cards[MAX_DECK_SIZE];
+    uint16_t card_ids[MAX_DECK_SIZE];
     int next_card;
     int card_count;
-    uint16_t next_card_id;
 } Deck;
 
-Card *deck_find_card(Deck *deck, uint16_t id);
+typedef struct
+{
+    Card cards[MAX_DECK_SIZE];
+    int card_count;
+    uint32_t next_card_id;
+} CardRegistry;
 
-void deck_init(Deck *deck);
+void deck_init(Deck *deck, CardRegistry *registry);
 void deck_shuffle(Deck *deck);
-int deck_draw(Deck *deck, Card *card);
-int deck_add_card(Deck *deck, Card card);
+void card_registry_init(CardRegistry *registry);
+
+int deck_draw(Deck *deck, CardRegistry *registry, Card *card);
+int deck_add_card(Deck *deck, CardRegistry *registry, Card card);
 int deck_remove_card(Deck *deck, uint16_t id);
+
+int card_registry_add(CardRegistry *registry, Card card, uint16_t *new_id);
+int card_registry_remove(CardRegistry *registry, uint16_t id);
+
+Card *card_registry_find(CardRegistry *registry, uint16_t id);
+Card *deck_find_card(Deck *deck, CardRegistry *registry, uint16_t id);
 
 const char *card_rank_name(Rank rank);
 const char *card_suit_name(Suit suit);

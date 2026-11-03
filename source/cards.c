@@ -2,54 +2,48 @@
 
 #include <stdlib.h>
 
-void deck_init(Deck *deck)
+void deck_init(Deck *deck, CardRegistry *registry)
 {
-
-    if (deck == NULL)
+    if (deck == NULL || registry == NULL)
         return;
 
-    int index = 0;
-
-    for (int suit = SUIT_DIAMONDS;
-         suit <= SUIT_SPADES; suit++)
-    {
-        for (int rank = RANK_2;
-             rank <= RANK_ACE; rank++)
-        {
-            Card *card = &deck->cards[index++];
-
-            card->suit = (Suit)suit;
-            card->rank = (Rank)rank;
-            card->id = (uint16_t)(index - 1);
-
-            card->enhancement = ENHANCEMENT_NONE;
-            card->edition = EDITION_NONE;
-            card->seal = SEAL_NONE;
-            card->debuffed = 0;
-
-            if (rank <= RANK_10)
-            {
-                card->nominal = (uint8_t)rank;
-            }
-            else if (rank == RANK_ACE)
-            {
-                card->nominal = 11;
-            }
-            else
-            {
-                card->nominal = 10;
-            }
-        }
-    }
+    card_registry_init(registry);
 
     deck->next_card = 0;
-    deck->card_count = DECK_SIZE;
-    deck->next_card_id = DECK_SIZE;
+    deck->card_count = 0;
+
+    for (int suit = SUIT_DIAMONDS; suit <= SUIT_SPADES; suit++)
+    {
+        for (int rank = RANK_2; rank <= RANK_ACE; rank++)
+        {
+            Card card = {0};
+
+            card.suit = (Suit)suit;
+            card.rank = (Rank)rank;
+            card.enhancement = ENHANCEMENT_NONE;
+            card.edition = EDITION_NONE;
+            card.seal = SEAL_NONE;
+            card.debuffed = 0;
+
+            if (rank <= RANK_10)
+                card.nominal = (uint8_t)rank;
+            else if (rank == RANK_ACE)
+                card.nominal = 11;
+            else
+                card.nominal = 10;
+
+            uint16_t new_id;
+
+            if (!card_registry_add(registry, card, &new_id))
+                return;
+
+            deck->card_ids[deck->card_count++] = new_id;
+        }
+    }
 }
 
 void deck_shuffle(Deck *deck)
 {
-
     if (deck == NULL || deck->card_count <= 0 ||
         deck->card_count > MAX_DECK_SIZE)
         return;
@@ -58,27 +52,32 @@ void deck_shuffle(Deck *deck)
     {
         int j = rand() % (i + 1);
 
-        Card temp = deck->cards[i];
-        deck->cards[i] = deck->cards[j];
-        deck->cards[j] = temp;
+        uint16_t temp = deck->card_ids[i];
+        deck->card_ids[i] = deck->card_ids[j];
+        deck->card_ids[j] = temp;
     }
 
     deck->next_card = 0;
 }
 
-int deck_draw(Deck *deck, Card *card)
+int deck_draw(Deck *deck, CardRegistry *registry, Card *card)
 {
-
-    if (deck == NULL || card == NULL ||
+    if (deck == NULL || registry == NULL || card == NULL ||
+        deck->card_count < 0 ||
+        deck->card_count > MAX_DECK_SIZE ||
         deck->next_card < 0 ||
-        deck->next_card >= deck->card_count ||
-        deck->card_count > MAX_DECK_SIZE)
+        deck->next_card >= deck->card_count)
         return 0;
 
-    if (deck->next_card >= deck->card_count)
+    Card *found = card_registry_find(
+        registry, deck->card_ids[deck->next_card]);
+
+    if (found == NULL)
         return 0;
 
-    *card = deck->cards[deck->next_card++];
+    *card = *found;
+    deck->next_card++;
+
     return 1;
 }
 
@@ -105,33 +104,37 @@ const char *card_suit_name(Suit suit)
     return names[suit];
 }
 
-Card *deck_find_card(Deck *deck, uint16_t id)
+Card *deck_find_card(Deck *deck, CardRegistry *registry, uint16_t id)
 {
-    if (deck == NULL ||
+    if (deck == NULL || registry == NULL ||
         deck->card_count < 0 ||
         deck->card_count > MAX_DECK_SIZE)
         return NULL;
 
     for (int i = 0; i < deck->card_count; i++)
     {
-        if (deck->cards[i].id == id)
-            return &deck->cards[i];
+        if (deck->card_ids[i] == id)
+            return card_registry_find(registry, id);
     }
 
     return NULL;
 }
 
-int deck_add_card(Deck *deck, Card card)
+int deck_add_card(Deck *deck, CardRegistry *registry, Card card)
 {
-    if (deck == NULL ||
+    if (deck == NULL || registry == NULL ||
         deck->card_count < 0 ||
-        deck->card_count >= MAX_DECK_SIZE)
+        deck->card_count >= MAX_DECK_SIZE ||
+        deck->next_card < 0 ||
+        deck->next_card > deck->card_count)
         return 0;
 
-    card.id = deck->next_card_id++;
+    uint16_t new_id;
 
-    deck->cards[deck->card_count] = card;
-    deck->card_count++;
+    if (!card_registry_add(registry, card, &new_id))
+        return 0;
+
+    deck->card_ids[deck->card_count++] = new_id;
 
     return 1;
 }
@@ -140,14 +143,16 @@ int deck_remove_card(Deck *deck, uint16_t id)
 {
     if (deck == NULL ||
         deck->card_count <= 0 ||
-        deck->card_count > MAX_DECK_SIZE)
+        deck->card_count > MAX_DECK_SIZE ||
+        deck->next_card < 0 ||
+        deck->next_card > deck->card_count)
         return 0;
 
     int index = -1;
 
     for (int i = 0; i < deck->card_count; i++)
     {
-        if (deck->cards[i].id == id)
+        if (deck->card_ids[i] == id)
         {
             index = i;
             break;
@@ -158,17 +163,84 @@ int deck_remove_card(Deck *deck, uint16_t id)
         return 0;
 
     for (int i = index; i < deck->card_count - 1; i++)
-    {
-        deck->cards[i] = deck->cards[i + 1];
-    }
+        deck->card_ids[i] = deck->card_ids[i + 1];
 
     deck->card_count--;
 
     if (index < deck->next_card)
         deck->next_card--;
 
-    if (deck->next_card > deck->card_count)
-        deck->next_card = deck->card_count;
+    return 1;
+}
+
+void card_registry_init(CardRegistry *registry)
+{
+    if (registry == NULL)
+        return;
+
+    registry->card_count = 0;
+    registry->next_card_id = 0;
+}
+
+Card *card_registry_find(CardRegistry *registry, uint16_t id)
+{
+    if (registry == NULL ||
+        registry->card_count < 0 ||
+        registry->card_count > MAX_DECK_SIZE)
+        return NULL;
+
+    for (int i = 0; i < registry->card_count; i++)
+    {
+        if (registry->cards[i].id == id)
+            return &registry->cards[i];
+    }
+
+    return NULL;
+}
+
+int card_registry_add(CardRegistry *registry, Card card, uint16_t *new_id)
+{
+    if (registry == NULL ||
+        new_id == NULL ||
+        registry->card_count < 0 ||
+        registry->card_count >= MAX_DECK_SIZE ||
+        registry->next_card_id > UINT16_MAX)
+        return 0;
+
+    card.id = (uint16_t)registry->next_card_id++;
+
+    registry->cards[registry->card_count++] = card;
+
+    *new_id = card.id;
+
+    return 1;
+}
+
+int card_registry_remove(CardRegistry *registry, uint16_t id)
+{
+    if (registry == NULL ||
+        registry->card_count <= 0 ||
+        registry->card_count > MAX_DECK_SIZE)
+        return 0;
+
+    int index = -1;
+
+    for (int i = 0; i < registry->card_count; i++)
+    {
+        if (registry->cards[i].id == id)
+        {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1)
+        return 0;
+
+    for (int i = index; i < registry->card_count - 1; i++)
+        registry->cards[i] = registry->cards[i + 1];
+
+    registry->card_count--;
 
     return 1;
 }

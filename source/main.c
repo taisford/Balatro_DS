@@ -41,17 +41,20 @@ typedef struct
     int current_score;
 } RoundState;
 
+static CardRegistry card_registry;
 static Deck deck;
-static Card hand[HAND_SIZE];
+
+static uint16_t hand_ids[HAND_SIZE];
 static int hand_count = 0;
 static int selected[HAND_SIZE];
+
 static RoundState round_state;
 static int money = 4;
 static int last_reward = 0;
 static PrintConsole topScreen;
 static PrintConsole bottomScreen;
 
-static Card discard_pile[DECK_SIZE];
+static uint16_t discard_ids[MAX_DECK_SIZE];
 static int discard_count = 0;
 
 static int hands_remaining = 4;
@@ -70,7 +73,15 @@ static void refill_hand(void);
 
 static void reset_blind_deck(void)
 {
-    deck_init(&deck);
+    // Reconstruir el mazo con las cartas que siguen existiendo.
+    deck.card_count = card_registry.card_count;
+    deck.next_card = 0;
+
+    for (int i = 0; i < card_registry.card_count; i++)
+    {
+        deck.card_ids[i] = card_registry.cards[i].id;
+    }
+
     deck_shuffle(&deck);
 
     hand_count = 0;
@@ -92,7 +103,7 @@ static void start_test_game(void)
     last_reward = 0;
     sort_mode = 0;
 
-    deck_init(&deck);
+    deck_init(&deck, &card_registry);
     deck_shuffle(&deck);
 
     hand_count = 0;
@@ -201,18 +212,21 @@ static void complete_blind(GameScreen *screen)
     *screen = SCREEN_SHOP;
 }
 
-static void discard_card(Card card)
+static void discard_card(uint16_t card_id)
 {
-    if (discard_count < DECK_SIZE)
+    if (discard_count < MAX_DECK_SIZE)
     {
-        discard_pile[discard_count++] = card;
+        discard_ids[discard_count++] = card_id;
     }
 }
 
-static int draw_card(Card *card)
+static int draw_card(uint16_t *card_id)
 {
-    if (deck_draw(&deck, card))
+    Card card;
+
+    if (deck_draw(&deck, &card_registry, &card))
     {
+        *card_id = card.id;
         return 1;
     }
 
@@ -221,25 +235,33 @@ static int draw_card(Card *card)
         return 0;
     }
 
-    for (int i = 0; i < discard_count; i++)
-    {
-        deck.cards[i] = discard_pile[i];
-    }
-
+    // Reciclar las cartas descartadas.
     deck.card_count = discard_count;
     deck.next_card = 0;
-    deck_shuffle(&deck);
+
+    for (int i = 0; i < discard_count; i++)
+    {
+        deck.card_ids[i] = discard_ids[i];
+    }
 
     discard_count = 0;
 
-    return deck_draw(&deck, card);
+    deck_shuffle(&deck);
+
+    if (!deck_draw(&deck, &card_registry, &card))
+    {
+        return 0;
+    }
+
+    *card_id = card.id;
+    return 1;
 }
 
 static void refill_hand(void)
 {
     while (hand_count < HAND_SIZE)
     {
-        if (!draw_card(&hand[hand_count]))
+        if (!draw_card(&hand_ids[hand_count]))
         {
             break;
         }
@@ -256,11 +278,11 @@ static void remove_selected_and_draw(void)
     {
         if (selected[i])
         {
-            discard_card(hand[i]);
+            discard_card(hand_ids[i]);
         }
         else
         {
-            hand[write_index++] = hand[i];
+            hand_ids[write_index++] = hand_ids[i];
         }
     }
 
@@ -301,35 +323,47 @@ static int card_suit_value(const void *a, const void *b)
 static void sort_hand(void)
 {
     if (hand_count < 2)
-    {
         return;
-    }
 
-    Card selected_cards[HAND_SIZE];
+    Card sorted_cards[HAND_SIZE];
+    uint16_t selected_ids[HAND_SIZE];
     int selected_cards_count = 0;
 
-    /* Guardar las cartas seleccionadas */
+    // Resolver IDs y guardar las cartas seleccionadas.
     for (int i = 0; i < hand_count; i++)
     {
+        Card *card = card_registry_find(&card_registry, hand_ids[i]);
+
+        if (card == NULL)
+            return;
+
+        sorted_cards[i] = *card;
+
         if (selected[i])
         {
-            selected_cards[selected_cards_count++] = hand[i];
+            selected_ids[selected_cards_count++] = hand_ids[i];
         }
     }
 
-    /* Ordenar la mano */
+    // Ordenar las copias temporales.
     if (sort_mode == 0)
     {
-        qsort(hand, hand_count, sizeof(Card), card_suit_value);
+        qsort(sorted_cards, hand_count, sizeof(Card), card_suit_value);
         sort_mode = 1;
     }
     else
     {
-        qsort(hand, hand_count, sizeof(Card), card_value_desc);
+        qsort(sorted_cards, hand_count, sizeof(Card), card_value_desc);
         sort_mode = 0;
     }
 
-    /* Reconstruir la selección según las cartas */
+    // Devolver los IDs a la mano en el nuevo orden.
+    for (int i = 0; i < hand_count; i++)
+    {
+        hand_ids[i] = sorted_cards[i].id;
+    }
+
+    // Reconstruir la selección usando los IDs.
     for (int i = 0; i < HAND_SIZE; i++)
     {
         selected[i] = 0;
@@ -341,8 +375,7 @@ static void sort_hand(void)
     {
         for (int j = 0; j < selected_cards_count; j++)
         {
-            if (hand[i].rank == selected_cards[j].rank &&
-                hand[i].suit == selected_cards[j].suit)
+            if (hand_ids[i] == selected_ids[j])
             {
                 selected[i] = 1;
                 selected_count++;
@@ -363,7 +396,13 @@ static void evaluate_selection(void)
     {
         if (selected[i] && count < 5)
         {
-            chosen[count++] = hand[i];
+            Card *card = card_registry_find(
+                &card_registry, hand_ids[i]);
+
+            if (card == NULL)
+                return;
+
+            chosen[count++] = *card;
         }
     }
 
@@ -483,13 +522,24 @@ static void draw_screen(GameScreen screen)
 
     consoleSelect(&bottomScreen);
     consoleClear();
+
     for (int i = 0; i < hand_count; i++)
     {
+        Card *card = card_registry_find(&card_registry, hand_ids[i]);
+
+        if (card == NULL)
+        {
+            printf("%c %c Carta invalida\n",
+                   i == cursor ? '>' : ' ',
+                   selected[i] ? '*' : ' ');
+            continue;
+        }
+
         printf("%c %c %s de %s\n",
                i == cursor ? '>' : ' ',
                selected[i] ? '*' : ' ',
-               card_rank_name(hand[i].rank),
-               card_suit_name(hand[i].suit));
+               card_rank_name(card->rank),
+               card_suit_name(card->suit));
     }
 
     printf("\nCruceta: mover");
