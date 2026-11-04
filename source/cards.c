@@ -244,3 +244,70 @@ int card_registry_remove(CardRegistry *registry, uint16_t id)
 
     return 1;
 }
+
+int card_set_enhancement(
+    CardRegistry *registry,
+    uint16_t id,
+    CardEnhancement enhancement)
+{
+    if (enhancement < ENHANCEMENT_NONE ||
+        enhancement > ENHANCEMENT_LUCKY)
+        return 0;
+
+    Card *card = card_registry_find(registry, id);
+
+    if (card == NULL)
+        return 0;
+
+    card->enhancement = enhancement;
+    return 1;
+}
+
+int card_set_edition(
+    CardRegistry *registry,
+    uint16_t id,
+    CardEdition edition)
+{
+    if (edition < EDITION_NONE ||
+        edition > EDITION_NEGATIVE)
+        return 0;
+
+    Card *card = card_registry_find(registry, id);
+
+    if (card == NULL)
+        return 0;
+
+    card->edition = edition;
+    return 1;
+}
+
+int card_set_seal(
+    CardRegistry *registry,
+    uint16_t id,
+    CardSeal seal)
+{
+    if (seal < SEAL_NONE || seal > SEAL_PURPLE)
+        return 0;
+
+    Card *card = card_registry_find(registry, id);
+
+    if (card == NULL)
+        return 0;
+
+    card->seal = seal;
+    return 1;
+}
+
+int card_set_debuffed(
+    CardRegistry *registry,
+    uint16_t id,
+    uint8_t debuffed)
+{
+    Card *card = card_registry_find(registry, id);
+
+    if (card == NULL)
+        return 0;
+
+    card->debuffed = debuffed ? 1 : 0;
+    return 1;
+}

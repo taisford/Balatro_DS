@@ -102,6 +102,26 @@ int deck_remove_card(Deck *deck, uint16_t id);
 int card_registry_add(CardRegistry *registry, Card card, uint16_t *new_id);
 int card_registry_remove(CardRegistry *registry, uint16_t id);
 
+int card_set_enhancement(
+    CardRegistry *registry,
+    uint16_t id,
+    CardEnhancement enhancement);
+
+int card_set_edition(
+    CardRegistry *registry,
+    uint16_t id,
+    CardEdition edition);
+
+int card_set_seal(
+    CardRegistry *registry,
+    uint16_t id,
+    CardSeal seal);
+
+int card_set_debuffed(
+    CardRegistry *registry,
+    uint16_t id,
+    uint8_t debuffed);
+
 Card *card_registry_find(CardRegistry *registry, uint16_t id);
 Card *deck_find_card(Deck *deck, CardRegistry *registry, uint16_t id);
 

@@ -64,14 +64,40 @@ ScoreResult score_hand(const Card *cards, int count,
                    &result.base_mult);
 
     result.card_chips = 0;
+    result.total_mult = result.base_mult;
+
+    int enhancement_mult = 0;
 
     for (int i = 0; i < poker->scoring_count; i++)
     {
         int index = poker->scoring_indices[i];
 
-        if (index >= 0 && index < count)
-            result.card_chips += cards[index].nominal;
+        if (index < 0 || index >= count)
+            continue;
+
+        const Card *card = &cards[index];
+
+        if (card->debuffed)
+            continue;
+
+        result.card_chips += card->nominal;
+
+        switch (card->enhancement)
+        {
+        case ENHANCEMENT_BONUS:
+            result.card_chips += 30;
+            break;
+
+        case ENHANCEMENT_MULT:
+            enhancement_mult += 4;
+            break;
+
+        default:
+            break;
+        }
     }
+
+    result.total_mult += enhancement_mult;
 
     result.total_chips = result.base_chips + result.card_chips;
     result.total_mult = result.base_mult;
