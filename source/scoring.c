@@ -66,8 +66,6 @@ ScoreResult score_hand(const Card *cards, int count,
     result.card_chips = 0;
     result.total_mult = result.base_mult;
 
-    int enhancement_mult = 0;
-
     for (int i = 0; i < poker->scoring_count; i++)
     {
         int index = poker->scoring_indices[i];
@@ -80,27 +78,33 @@ ScoreResult score_hand(const Card *cards, int count,
         if (card->debuffed)
             continue;
 
-        result.card_chips += card->nominal;
-
         switch (card->enhancement)
         {
         case ENHANCEMENT_BONUS:
-            result.card_chips += 30;
+            result.card_chips += card->nominal + 30;
             break;
 
         case ENHANCEMENT_MULT:
-            enhancement_mult += 4;
+            result.card_chips += card->nominal;
+            result.total_mult += 4;
+            break;
+
+        case ENHANCEMENT_GLASS:
+            result.card_chips += card->nominal;
+            result.total_mult *= 2;
+            break;
+
+        case ENHANCEMENT_STONE:
+            result.card_chips += 50;
             break;
 
         default:
+            result.card_chips += card->nominal;
             break;
         }
     }
 
-    result.total_mult += enhancement_mult;
-
     result.total_chips = result.base_chips + result.card_chips;
-    result.total_mult = result.base_mult;
 
     jokers_apply((Joker *)jokers, joker_count,
                  cards, count, poker,
