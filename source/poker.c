@@ -31,6 +31,8 @@ static int find_straight(const Card *cards, int count,
 
     for (int i = 0; i < count; i++)
     {
+        if (cards[i].enhancement == ENHANCEMENT_STONE)
+            continue;
         if (suit_filter >= 0 &&
             cards[i].suit != suit_filter)
             continue;

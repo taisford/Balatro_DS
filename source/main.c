@@ -273,12 +273,42 @@ static void refill_hand(void)
 static void remove_selected_and_draw(void)
 {
     int write_index = 0;
+    int played_index = 0;
 
     for (int i = 0; i < hand_count; i++)
     {
         if (selected[i])
         {
-            discard_card(hand_ids[i]);
+            uint16_t id = hand_ids[i];
+            int scored = 0;
+
+            // Comprobar si esta carta participó en la puntuación.
+            for (int j = 0; j < result.scoring_count; j++)
+            {
+                if (result.scoring_indices[j] == played_index)
+                {
+                    scored = 1;
+                    break;
+                }
+            }
+
+            Card *card = card_registry_find(&card_registry, id);
+
+            if (card != NULL &&
+                scored &&
+                card->enhancement == ENHANCEMENT_GLASS &&
+                rand() % 4 == 0)
+            {
+                // Destruir la carta: quitarla del mazo y del registro.
+                deck_remove_card(&deck, id);
+                card_registry_remove(&card_registry, id);
+            }
+            else
+            {
+                discard_card(id);
+            }
+
+            played_index++;
         }
         else
         {
