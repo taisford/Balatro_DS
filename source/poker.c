@@ -85,6 +85,9 @@ PokerResult poker_evaluate(const Card *cards, int count)
 
     for (int i = 0; i < count; i++)
     {
+        if (cards[i].enhancement == ENHANCEMENT_STONE)
+            continue;
+
         if (cards[i].rank < RANK_2 ||
             cards[i].rank > RANK_ACE ||
             cards[i].suit < SUIT_DIAMONDS ||
@@ -100,6 +103,9 @@ PokerResult poker_evaluate(const Card *cards, int count)
 
     for (int i = 0; i < count; i++)
     {
+        if (cards[i].enhancement == ENHANCEMENT_STONE)
+            continue;
+
         int rank = cards[i].rank;
         int suit = cards[i].suit;
 
@@ -289,6 +295,9 @@ PokerResult poker_evaluate(const Card *cards, int count)
             break;
         }
 
+        if (cards[i].enhancement == ENHANCEMENT_STONE)
+            include = 1;
+
         if (include && result.scoring_count < HAND_SIZE)
         {
             result.scoring_indices[result.scoring_count++] = i;
@@ -298,15 +307,25 @@ PokerResult poker_evaluate(const Card *cards, int count)
     /* High Card scores only the highest card. */
     if (result.type == HAND_HIGH_CARD && count > 0)
     {
-        int best = 0;
-        for (int i = 1; i < count; i++)
-        {
-            if (cards[i].nominal > cards[best].nominal)
-                best = i;
-        }
-        result.scoring_indices[0] = best;
-        result.scoring_count = 1;
-    }
+        int best = -1;
 
+        for (int i = 0; i < count; i++)
+        {
+            if (cards[i].enhancement == ENHANCEMENT_STONE)
+                continue;
+
+            if (best == -1 ||
+                cards[i].nominal > cards[best].nominal)
+            {
+                best = i;
+            }
+        }
+
+        if (best >= 0)
+        {
+            result.scoring_indices[0] = best;
+            result.scoring_count = 1;
+        }
+    }
     return result;
 }
