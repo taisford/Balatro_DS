@@ -15,8 +15,13 @@ typedef struct
     int score;
 } ScoreResult;
 
-ScoreResult score_hand(const Card *cards, int count,
-                       const PokerResult *poker,
-                       const Joker *jokers, int joker_count);
+ScoreResult score_hand(
+    const Card *played_cards,
+    int played_count,
+    const Card *held_cards,
+    int held_count,
+    const PokerResult *poker,
+    const Joker *jokers,
+    int joker_count);
 
 #endif

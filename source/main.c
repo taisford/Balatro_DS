@@ -420,7 +420,10 @@ static void sort_hand(void)
 static void evaluate_selection(void)
 {
     Card chosen[5];
-    int count = 0;
+    Card held[HAND_SIZE];
+
+    int chosen_count = 0;
+    int held_count = 0;
 
     for (int i = 0; i < hand_count; i++)
     {
